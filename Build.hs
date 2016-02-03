@@ -21,15 +21,35 @@ import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Data.Aeson
 
+import System.Directory (getTemporaryDirectory, createDirectoryIfMissing)
+import GHC.Conc (getNumProcessors)
+
 data Step a = Step { stepName   :: String
                    , stepAction :: StepM a
                    }
 
 step = Step
 
-data BuildEnv = BuildEnv { nThreads :: Int
-                         , buildCwd :: FilePath
+data BuildEnv = BuildEnv { nThreads   :: Int
+                         , buildCwd   :: FilePath
+                         , scratchDir :: FilePath
                          }
+
+defaultBuildEnv :: BuildEnv
+defaultBuildEnv =
+    BuildEnv { nThreads   = 1
+             , buildCwd   = "."
+             , scratchDir = "tmp"
+             }
+
+simpleBuildEnv :: IO BuildEnv
+simpleBuildEnv = do
+    nProcs <- getNumProcessors
+    tempDir <- getTemporaryDirectory
+    pure BuildEnv { nThreads   = nProcs
+                  , buildCwd   = "."
+                  , scratchDir = tempDir
+                  }
 
 -- | An atomic task of a build recipe
 newtype StepM a = StepM (StateT StepState (EitherT String (ReaderT BuildEnv IO)) a)
@@ -45,9 +65,10 @@ buildSteps :: [Step ()] -> Build
 buildSteps = Build
 
 runBuild :: BuildEnv -> Build -> IO ()
-runBuild env build = do
+runBuild env@(BuildEnv {..}) build = do
     results <- runBuild' env build
-    encodeFile "build.json" results
+    createDirectoryIfMissing True scratchDir
+    BS.writeFile "build.json" $ encode results
     return ()
 
 runBuild' :: BuildEnv -> Build -> IO [StepResult]

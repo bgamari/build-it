@@ -49,8 +49,9 @@ ghcBuild = buildSteps
     , testsuite
     ]
 
-main = runBuild env ghcBuild
+main :: IO ()
+main = do
+    env <- simpleBuildEnv
+    let env' = env { buildCwd   = "/opt/exp/ghc/ghc-landing" }
+    runBuild env' ghcBuild
 
-env = BuildEnv { nThreads = 4
-               , buildCwd = "/opt/exp/ghc/ghc-landing"
-               }

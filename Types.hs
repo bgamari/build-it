@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Types where
 
@@ -28,8 +29,16 @@ data BuildResult = BuildResult { builderName   :: String
 newtype ArtifactName = ArtifactName String
     deriving (Generic, ToJSON)
 
-newtype SWriterT w m a = SWriterT (StateT w m a)
-    deriving (Functor, Applicative, Monad, MonadIO)
+newtype SWriterT w m a = SWriterT {getSWriterT :: StateT w m a}
+    deriving (Functor, MonadIO)
+
+instance Monad m => Applicative (SWriterT w m) where
+    pure = SWriterT . pure
+    SWriterT a <*> SWriterT b = SWriterT $ a <*> b
+
+instance Monad m => Monad (SWriterT w m) where
+    return = pure
+    SWriterT a >>= f = SWriterT $ a >>= getSWriterT . f
 
 runSWriterT :: (Monad m, Monoid w) => SWriterT w m a -> m (a, w)
 runSWriterT (SWriterT action) = runStateT action mempty
