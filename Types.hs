@@ -30,7 +30,9 @@ newtype ArtifactName = ArtifactName String
     deriving (Generic, ToJSON, FromJSON)
 
 newtype SWriterT w m a = SWriterT {getSWriterT :: StateT w m a}
-    deriving (Functor, MonadIO)
+    deriving (Functor)
+
+instance MonadIO m => MonadIO (SWriterT w m) where liftIO = SWriterT . liftIO
 
 instance Monad m => Applicative (SWriterT w m) where
     pure = SWriterT . pure
