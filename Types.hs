@@ -13,21 +13,21 @@ import Control.Monad.IO.Class
 
 data StepSuccess = StepSucceeded
                  | StepFailed { stepFailReason :: String }
-    deriving (Generic, ToJSON)
+    deriving (Generic, ToJSON, FromJSON)
 
 data StepResult = StepResult { stepSucceeded :: StepSuccess
                              , stepRuntime   :: NominalDiffTime
                              , stepArtifacts :: [(ArtifactName, FilePath)]
                              }
-    deriving (Generic, ToJSON)
+    deriving (Generic, ToJSON, FromJSON)
 
 data BuildResult = BuildResult { builderName   :: String
                                , buildSteps    :: [StepResult]
                                }
-    deriving (Generic, ToJSON)
+    deriving (Generic, ToJSON, FromJSON)
 
 newtype ArtifactName = ArtifactName String
-    deriving (Generic, ToJSON)
+    deriving (Generic, ToJSON, FromJSON)
 
 newtype SWriterT w m a = SWriterT {getSWriterT :: StateT w m a}
     deriving (Functor, MonadIO)
