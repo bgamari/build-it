@@ -33,6 +33,7 @@ step = Step
 data BuildEnv = BuildEnv { nThreads   :: Int
                          , buildCwd   :: FilePath
                          , scratchDir :: FilePath
+                         , verbose    :: Bool
                          }
 
 defaultBuildEnv :: BuildEnv
@@ -40,16 +41,18 @@ defaultBuildEnv =
     BuildEnv { nThreads   = 1
              , buildCwd   = "."
              , scratchDir = "tmp"
+             , verbose    = False
              }
 
 simpleBuildEnv :: IO BuildEnv
 simpleBuildEnv = do
     nProcs <- getNumProcessors
     tempDir <- getTemporaryDirectory
-    pure BuildEnv { nThreads   = nProcs
-                  , buildCwd   = "."
-                  , scratchDir = tempDir
-                  }
+    pure defaultBuildEnv { nThreads   = nProcs
+                         , buildCwd   = "."
+                         , scratchDir = tempDir
+                         , verbose    = False
+                         }
 
 -- | An atomic task of a build recipe
 newtype StepM a = StepM (StateT StepState (EitherT String (ReaderT BuildEnv IO)) a)
