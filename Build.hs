@@ -24,6 +24,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 
 import System.FilePath
 import System.Directory (getTemporaryDirectory, createDirectoryIfMissing)
+import System.IO.Temp
 import GHC.Conc (getNumProcessors)
 
 import Types
@@ -48,17 +49,18 @@ defaultBuildEnv =
     BuildEnv { nThreads   = 1
              , buildCwd   = "."
              , scratchDir = "tmp"
-             , verbosity  = Silent
+             , verbosity  = Info
              }
 
 simpleBuildEnv :: IO BuildEnv
 simpleBuildEnv = do
     nProcs <- getNumProcessors
     tempDir <- getTemporaryDirectory
+    scratchDir <- createTempDirectory tempDir "build"
     pure defaultBuildEnv { nThreads   = nProcs
                          , buildCwd   = "."
-                         , scratchDir = tempDir
-                         , verbosity  = Silent
+                         , scratchDir = scratchDir
+                         , verbosity  = Info
                          }
 
 -- | An atomic task of a build recipe
@@ -74,11 +76,16 @@ data Build = Build [Step ()]
 buildSteps :: [Step ()] -> Build
 buildSteps = Build
 
+scratchFile :: FilePath -> StepM FilePath
+scratchFile name = (name </>) . scratchDir <$> getBuildEnv
+
 runBuild :: BuildEnv -> Build -> IO ()
 runBuild env@(BuildEnv {..}) build = do
+    putStrLn $ "Using scratch directory "++scratchDir
     results <- runBuild' env build
     createDirectoryIfMissing True scratchDir
-    BS.writeFile "build.json" $ encode results
+    let fname = scratchDir </> "build.json"
+    BS.writeFile fname $ encode results
     return ()
 
 runBuild' :: BuildEnv -> Build -> IO BuildResult
