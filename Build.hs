@@ -17,6 +17,8 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Either
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+import Control.Monad (when)
+
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BS
 
@@ -32,10 +34,13 @@ data Step a = Step { stepName   :: String
 
 step = Step
 
+data Verbosity = Silent | Info | Debug
+               deriving (Eq, Ord, Bounded, Enum)
+
 data BuildEnv = BuildEnv { nThreads   :: Int
                          , buildCwd   :: FilePath
                          , scratchDir :: FilePath
-                         , verbose    :: Bool
+                         , verbosity  :: Verbosity
                          }
 
 defaultBuildEnv :: BuildEnv
@@ -43,7 +48,7 @@ defaultBuildEnv =
     BuildEnv { nThreads   = 1
              , buildCwd   = "."
              , scratchDir = "tmp"
-             , verbose    = False
+             , verbosity  = Silent
              }
 
 simpleBuildEnv :: IO BuildEnv
@@ -53,7 +58,7 @@ simpleBuildEnv = do
     pure defaultBuildEnv { nThreads   = nProcs
                          , buildCwd   = "."
                          , scratchDir = tempDir
-                         , verbose    = False
+                         , verbosity  = Silent
                          }
 
 -- | An atomic task of a build recipe
@@ -108,6 +113,11 @@ cmd c args =
 getBuildEnv :: StepM BuildEnv
 getBuildEnv = StepM $ lift $ lift ask
 
+logMesg :: Verbosity -> String -> StepM ()
+logMesg v msg = do
+    BuildEnv {..} <- getBuildEnv
+    when (v >= verbosity) $ liftIO $ putStrLn msg
+
 -- | Run a command sending output to the log
 run :: FilePath -> [String] -> StepM ()
 run c args = do
@@ -115,7 +125,9 @@ run c args = do
     log_name:rest <- cmdLogNames <$> StepM get
     let log_path = scratchDir </> log_name <.> ".log"
     StepM $ modify $ \s -> s {cmdLogNames = rest}
+    logMesg Info $ "running "++unwords (c:args)++"... "
     code <- liftIO $ withFile log_path WriteMode $ \log -> logProcess log buildCwd c args
+    logMesg Info $ "exited with "++show code
     addArtifact (ArtifactName log_name) log_path
     return ()
 
