@@ -36,7 +36,7 @@ testBinDist :: Step ()
 testBinDist = step "test-bindist" $ make ["test_bindist"]
 
 testsuite :: Step ()
-testsuite = step "test" $ make ["test"]
+testsuite = step "test" $ make ["test", "THREADS="<>show threads]
 
 ghcBuild :: Build
 ghcBuild = buildSteps
