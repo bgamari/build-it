@@ -4,13 +4,11 @@
 
 module Build where
 
-import Types
 import System.Process
 import Data.Time.Clock
 import System.IO
 import System.Exit (ExitCode)
 import Data.Monoid
-import qualified Data.ByteString.Lazy.Char8 as BS
 import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Applicative ((<|>))
@@ -20,9 +18,13 @@ import Control.Monad.Trans.Either
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Data.Aeson
+import qualified Data.ByteString.Lazy.Char8 as BS
 
+import System.FilePath
 import System.Directory (getTemporaryDirectory, createDirectoryIfMissing)
 import GHC.Conc (getNumProcessors)
+
+import Types
 
 data Step a = Step { stepName   :: String
                    , stepAction :: StepM a
@@ -74,10 +76,13 @@ runBuild env@(BuildEnv {..}) build = do
     BS.writeFile "build.json" $ encode results
     return ()
 
-runBuild' :: BuildEnv -> Build -> IO [StepResult]
+runBuild' :: BuildEnv -> Build -> IO BuildResult
 runBuild' env (Build steps) = do
     (_, step_results) <- runSWriterT $ runEitherT $ mapM_ runStep steps
-    return step_results
+    let res = BuildResult { buildSteps = step_results
+                          , builderName = ""
+                          }
+    return res
   where
     runStep :: Step () -> EitherT () (SWriterT [StepResult] IO) ()
     runStep (Step name (StepM act)) = EitherT $ do
@@ -86,8 +91,9 @@ runBuild' env (Build steps) = do
         t1 <- liftIO getCurrentTime
         let success = case r of
                       Left err -> StepFailed err
-                      Right s  -> StepSucceeded
-        tell [StepResult { stepSucceeded = success
+                      Right _  -> StepSucceeded
+        tell [StepResult { stepName      = name
+                         , stepSucceeded = success
                          , stepRuntime   = t1 `diffUTCTime` t0
                          , stepArtifacts = []
                          }]
@@ -105,10 +111,12 @@ getBuildEnv = StepM $ lift $ lift ask
 -- | Run a command sending output to the log
 run :: FilePath -> [String] -> StepM ()
 run c args = do
-    cmdlog:rest <- cmdLogNames <$> StepM get
     BuildEnv {..} <- getBuildEnv
+    log_name:rest <- cmdLogNames <$> StepM get
+    let log_path = scratchDir </> log_name <.> ".log"
     StepM $ modify $ \s -> s {cmdLogNames = rest}
-    code <- liftIO $ withFile cmdlog WriteMode $ \log -> logProcess log buildCwd c args
+    code <- liftIO $ withFile log_path WriteMode $ \log -> logProcess log buildCwd c args
+    addArtifact (ArtifactName log_name) log_path
     return ()
 
 logProcess :: Handle -> FilePath -> FilePath -> [String] -> IO ExitCode

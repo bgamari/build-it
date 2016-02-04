@@ -15,7 +15,8 @@ data StepSuccess = StepSucceeded
                  | StepFailed { stepFailReason :: String }
     deriving (Generic, ToJSON, FromJSON)
 
-data StepResult = StepResult { stepSucceeded :: StepSuccess
+data StepResult = StepResult { stepName      :: String
+                             , stepSucceeded :: StepSuccess
                              , stepRuntime   :: NominalDiffTime
                              , stepArtifacts :: [(ArtifactName, FilePath)]
                              }
