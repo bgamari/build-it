@@ -133,6 +133,7 @@ run c args = do
 
 logProcess :: Handle -> FilePath -> FilePath -> [String] -> IO ExitCode
 logProcess log_h cwd cmd args = do
+    hPutStrLn log_h $ "= "++unwords (cmd:args)
     queue <- atomically newTQueue
     let worker prefix readH = do
             ls <- map (prefix <>) . BS.lines <$> BS.hGetContents readH
