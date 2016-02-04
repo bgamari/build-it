@@ -18,9 +18,13 @@ data StepSuccess = StepSucceeded
 data StepResult = StepResult { stepName      :: String
                              , stepSucceeded :: StepSuccess
                              , stepRuntime   :: NominalDiffTime
-                             , stepArtifacts :: [(ArtifactName, FilePath)]
+                             , stepArtifacts :: [(ArtifactName, ScratchPath)]
                              }
     deriving (Generic, ToJSON, FromJSON)
+
+-- | Path to a file in the scratch directory
+type ScratchPath = FilePath
+--newtype ScratchPath = ScratchPath FilePath deriving (Generic, ToJSON, FromJSON)
 
 data BuildResult = BuildResult { builderName   :: String
                                , buildSteps    :: [StepResult]
