@@ -95,7 +95,6 @@ runBuild env@(BuildEnv {..}) build = do
     let tarball_path = scratchDir </> "build.tar.xz"
     BSL.writeFile tarball_path . Lzma.compress
         . Tar.write =<< Tar.pack scratchDir artifact_paths
-    putStrLn $ "Build tarballl in "++tarball_path
     return tarball_path
 
 runBuild' :: BuildEnv -> Build -> IO BuildResult
