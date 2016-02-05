@@ -44,6 +44,7 @@ data BuildEnv = BuildEnv { nThreads   :: Int
                          , buildCwd   :: FilePath
                          , scratchDir :: FilePath
                          , verbosity  :: Verbosity
+                         , buildName  :: String
                          }
 
 defaultBuildEnv :: BuildEnv
@@ -52,6 +53,7 @@ defaultBuildEnv =
              , buildCwd   = "."
              , scratchDir = "tmp"
              , verbosity  = Info
+             , buildName = "build"
              }
 
 simpleBuildEnv :: IO BuildEnv
@@ -60,9 +62,7 @@ simpleBuildEnv = do
     tempDir <- getTemporaryDirectory
     scratchDir <- createTempDirectory tempDir "build"
     pure defaultBuildEnv { nThreads   = nProcs
-                         , buildCwd   = "."
                          , scratchDir = scratchDir
-                         , verbosity  = Info
                          }
 
 -- | An atomic task of a build recipe
@@ -79,20 +79,22 @@ buildSteps :: [Step ()] -> Build
 buildSteps = Build
 
 scratchFile :: FilePath -> StepM FilePath
-scratchFile name = (name </>) . scratchDir <$> getBuildEnv
+scratchFile name = do
+    BuildEnv {..} <- getBuildEnv
+    return $ scratchDir </> buildName </> name
 
 runBuild :: BuildEnv -> Build -> IO FilePath
 runBuild env@(BuildEnv {..}) build = do
     putStrLn $ "Using scratch directory "++scratchDir
     createDirectoryIfMissing True scratchDir
     result <- runBuild' env build
-    let fname = scratchDir </> "build.json"
+    let fname = scratchDir </> buildName </> "build.json"
     BSL.writeFile fname $ encode result
     let artifact_paths = "build.json" : [ path
                                         | step <- Types.buildSteps result
                                         , (_, path) <- stepArtifacts step
                                         ]
-    let tarball_path = scratchDir </> "build.tar.xz"
+    let tarball_path = scratchDir </> buildName <.> "tar.xz"
     BSL.writeFile tarball_path . Lzma.compress
         . Tar.write =<< Tar.pack scratchDir artifact_paths
     return tarball_path
@@ -139,7 +141,7 @@ run :: FilePath -> [String] -> StepM ()
 run c args = do
     BuildEnv {..} <- getBuildEnv
     log_name:rest <- cmdLogNames <$> StepM (lift get)
-    let log_path = scratchDir </> log_name
+    log_path <- scratchFile log_name
     StepM $ lift $ modify $ \s -> s {cmdLogNames = rest}
     logMesg Info $ "running "++unwords (c:args)++"... "
     code <- liftIO $ withFile log_path WriteMode $ \log_h -> do
@@ -184,13 +186,13 @@ addArtifact name file =
 copyArtifact :: ArtifactName -> FilePath -> StepM ()
 copyArtifact name file = do
     BuildEnv {..} <- getBuildEnv
-    let dest = scratchDir </> file
+    dest <- scratchFile file
     liftIO $ copyFile file dest
     addArtifact name dest
 
 addArtifactCompressed :: ArtifactName -> FilePath -> StepM ()
 addArtifactCompressed name file = do
     BuildEnv {..} <- getBuildEnv
-    let dest = scratchDir </> file <.> "xz"
+    dest <- scratchFile (file <.> "xz")
     liftIO $ BSL.writeFile dest . Lzma.compress =<< BSL.readFile file
     addArtifact name dest
