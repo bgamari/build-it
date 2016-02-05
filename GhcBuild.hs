@@ -1,4 +1,7 @@
 import Data.Monoid
+import System.Directory
+import Control.Monad.IO.Class
+import Data.List (isSuffixOf)
 
 import Build
 
@@ -33,7 +36,10 @@ compile :: Step ()
 compile = step "compile" $ make ["-j"<>show threads]
 
 binDist :: Step ()
-binDist = step "bindist" $ make ["binary-dist"]
+binDist = step "bindist" $ do
+    make ["binary-dist"]
+    f:_ <- filter (".tar.xz" `isSuffixOf`) <$> liftIO (getDirectoryContents ".")
+    copyArtifact (ArtifactName "bindist") f
 
 testBinDist :: Step ()
 testBinDist = step "test-bindist" $ make ["test_bindist"]

@@ -2,7 +2,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Build where
+module Build
+   ( module Build
+   , ArtifactName(..)
+   ) where
 
 import System.Process
 import Data.Time.Clock
