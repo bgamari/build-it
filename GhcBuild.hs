@@ -16,7 +16,10 @@ updateRepo = step "update" $ do
     git ["submodule", "update", "--init"]
 
 getCommit :: Step ()
-getCommit = step "commit" $ return ()
+getCommit = step "get-commit" $ git ["rev-parse", "HEAD"]
+
+checkBootstrap :: Step ()
+checkBootstrap = step "check-bootstrap" $ run "ghc" ["--info"]
 
 cleanRepo :: Step ()
 cleanRepo = step "clean" $ make ["distclean"]
@@ -42,6 +45,8 @@ ghcBuild :: Build
 ghcBuild = buildSteps
     [ cleanRepo
     , updateRepo
+    , getCommit
+    , checkBootstrap
     , configure
     , compile
     , binDist
