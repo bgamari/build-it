@@ -24,10 +24,10 @@ data StepResult = StepResult { stepName      :: String
 
 -- | Path to a file in the scratch directory
 type ScratchPath = FilePath
---newtype ScratchPath = ScratchPath FilePath deriving (Generic, ToJSON, FromJSON)
 
-data BuildResult = BuildResult { builderName   :: String
-                               , buildSteps    :: [StepResult]
+data BuildResult = BuildResult { buildName   :: String
+                               , buildCwd    :: FilePath
+                               , buildSteps  :: [StepResult]
                                }
     deriving (Generic, ToJSON, FromJSON)
 

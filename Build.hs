@@ -78,7 +78,7 @@ data Build = Build [Step ()]
 buildSteps :: [Step ()] -> Build
 buildSteps = Build
 
-scratchFile :: FilePath -> StepM FilePath
+scratchFile :: FilePath -> StepM ScratchPath
 scratchFile name = do
     BuildEnv {..} <- getBuildEnv
     return $ scratchDir </> buildName </> name
@@ -86,24 +86,27 @@ scratchFile name = do
 runBuild :: BuildEnv -> Build -> IO FilePath
 runBuild env@(BuildEnv {..}) build = do
     putStrLn $ "Using scratch directory "++scratchDir
-    createDirectoryIfMissing True scratchDir
+    let artifact_dir = scratchDir </> buildName
+    createDirectoryIfMissing True artifact_dir
     result <- runBuild' env build
-    let fname = scratchDir </> buildName </> "build.json"
+    let fname = artifact_dir </> "build.json"
     BSL.writeFile fname $ encode result
     let artifact_paths = "build.json" : [ path
                                         | step <- Types.buildSteps result
                                         , (_, path) <- stepArtifacts step
                                         ]
-    let tarball_path = scratchDir </> buildName <.> "tar.xz"
+
+    let tarball_path = artifact_dir <.> "tar.xz"
     BSL.writeFile tarball_path . Lzma.compress
-        . Tar.write =<< Tar.pack scratchDir artifact_paths
+        . Tar.write =<< Tar.pack artifact_dir artifact_paths
     return tarball_path
 
 runBuild' :: BuildEnv -> Build -> IO BuildResult
 runBuild' (env@BuildEnv {..}) (Build steps) = do
     (_, step_results) <- runSWriterT $ runEitherT $ mapM_ runStep steps
-    let res = BuildResult { buildSteps = step_results
-                          , builderName = ""
+    let res = BuildResult { buildName  = buildName
+                          , buildCwd   = buildCwd
+                          , buildSteps = step_results
                           }
     return res
   where
@@ -180,8 +183,10 @@ logProcess log_h cwd cmd args = do
     waitForProcess ph
 
 addArtifact :: ArtifactName -> FilePath -> StepM ()
-addArtifact name file =
-    StepM $ lift $ modify $ \s -> s { artifacts = (name, file) : artifacts s }
+addArtifact name file = do
+    BuildEnv {..} <- getBuildEnv
+    let rel = (scratchDir </> buildName) `makeRelative` file
+    StepM $ lift $ modify $ \s -> s { artifacts = (name, rel) : artifacts s }
 
 copyArtifact :: ArtifactName -> FilePath -> StepM ()
 copyArtifact name file = do
