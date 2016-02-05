@@ -29,7 +29,7 @@ import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Compression.Lzma as Lzma
 import GHC.Conc (getNumProcessors)
 
-import Types
+import Results
 
 data Step a = Step { stepName   :: String
                    , stepAction :: StepM a
@@ -92,7 +92,7 @@ runBuild env@(BuildEnv {..}) build = do
     let fname = artifact_dir </> "build.json"
     BSL.writeFile fname $ encode result
     let artifact_paths = "build.json" : [ path
-                                        | step <- Types.buildSteps result
+                                        | step <- Results.buildSteps result
                                         , (_, path) <- stepArtifacts step
                                         ]
 

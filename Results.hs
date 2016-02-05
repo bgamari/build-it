@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveFunctor #-}
 
-module Types where
+module Results where
 
 import GHC.Generics
 import Data.Aeson
