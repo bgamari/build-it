@@ -86,14 +86,13 @@ scratchFile name = do
     BuildEnv {..} <- getBuildEnv
     return $ scratchDir </> buildName </> name
 
-runBuild :: BuildEnv -> Build -> IO FilePath
-runBuild env@(BuildEnv {..}) build = do
-    putStrLn $ "Using scratch directory "++scratchDir
+runAndPackageBuild :: BuildEnv -> Build -> IO FilePath
+runAndPackageBuild env@(BuildEnv {..}) build = do
+    result <- runBuild env build
     let artifact_dir = scratchDir </> buildName
-    createDirectoryIfMissing True artifact_dir
-    result <- runBuild' env build
-    let fname = artifact_dir </> "build.json"
+        fname = artifact_dir </> "build.json"
     BSL.writeFile fname $ encode result
+
     let artifact_paths = "build.json" : [ path
                                         | step <- Results.buildSteps result
                                         , (_, path) <- stepArtifacts step
@@ -104,8 +103,10 @@ runBuild env@(BuildEnv {..}) build = do
         . Tar.write =<< Tar.pack artifact_dir artifact_paths
     return tarball_path
 
-runBuild' :: BuildEnv -> Build -> IO BuildResult
-runBuild' (env@BuildEnv {..}) (Build steps) = do
+runBuild :: BuildEnv -> Build -> IO BuildResult
+runBuild (env@BuildEnv {..}) (Build steps) = do
+    let artifact_dir = scratchDir </> buildName
+    createDirectoryIfMissing True artifact_dir
     (_, step_results) <- runSWriterT $ runEitherT $ mapM_ runStep steps
     let res = BuildResult { buildName  = buildName
                           , buildCwd   = buildCwd

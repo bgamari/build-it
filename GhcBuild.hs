@@ -63,6 +63,5 @@ ghcBuild = buildSteps
 main :: IO ()
 main = do
     env <- simpleBuildEnv
-    let env' = env { buildCwd   = "/opt/exp/ghc/ghc-landing" }
-    runBuild env' ghcBuild >>= print
+    runAndPackageBuild env ghcBuild >>= print
 
