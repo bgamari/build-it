@@ -3,11 +3,35 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Build
-   ( module Build
+   ( -- * Basic types
+     Verbosity(..)
    , ArtifactName(..)
+     -- * Build configuration
+   , BuildEnv(..)
+   , buildEnv
+   , defaultBuildEnv
+   , simpleBuildEnv
+     -- * Builds
+   , Build
+   , Build.buildSteps
+   , runBuild
+   , runAndPackageBuild
+     -- * Build steps
+   , Step, step
+   , StepM
+   , logMesg
+   , allowFailure
+     -- ** External processes
+   , cmd
+   , run
+     -- ** Adding build artifacts
+   , copyArtifact
+   , addArtifact
+   , addArtifactCompressed
    ) where
 
 import System.Process
+import System.Exit
 import Data.Time.Clock
 import System.IO
 import System.Exit (ExitCode)
@@ -21,6 +45,7 @@ import Control.Monad.Trans.Either
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Control.Monad (when, forM)
+import Options.Applicative
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -38,6 +63,8 @@ data Step a = Step { stepName   :: String
                    , stepAction :: StepM a
                    }
 
+-- | Smart constructor for 'Step'
+step :: String -> StepM a -> Step a
 step = Step
 
 data Verbosity = Silent | Info | Debug
@@ -49,6 +76,28 @@ data BuildEnv = BuildEnv { nThreads   :: Int
                          , verbosity  :: Verbosity
                          , buildName  :: String
                          }
+
+parseVerbosity :: Parser Verbosity
+parseVerbosity =
+    option (f =<< auto)
+           (short 'v' <> long "verbosity" <> metavar "n"
+           <> help "how much output should we produce to the console?")
+  where
+    f 0 = pure Silent
+    f 1 = pure Info
+    f 2 = pure Debug
+    f _ = fail "invalid verbosity"
+
+buildEnv :: Parser BuildEnv
+buildEnv =
+    BuildEnv <$> option auto (short 'j' <> long "jobs" <> metavar "n"
+                             <> help "number of concurrent jobs to run")
+             <*> option str (short 'C' <> long "directory" <> metavar "dir"
+                            <> help "the location of the working tree")
+             <*> option str (short 't' <> long "temp-dir" <> metavar "dir"
+                            <> help "where to place temporary files")
+             <*> parseVerbosity
+             <*> pure "build"
 
 defaultBuildEnv :: BuildEnv
 defaultBuildEnv =
@@ -143,6 +192,14 @@ logMesg v msg = do
     BuildEnv {..} <- getBuildEnv
     when (v >= verbosity) $ liftIO $ putStrLn msg
 
+-- | Run the given 'StepM' ignoring failure
+allowFailure :: StepM () -> StepM ()
+allowFailure (StepM action) = do
+    res <- StepM $ EitherT (Right <$> runEitherT action)
+    case res of
+        Right () -> return ()
+        Left err -> logMesg Info $ "Allowing failure: "++show err
+
 -- | Run a command sending output to the log
 run :: FilePath -> [String] -> StepM ()
 run c args = do
@@ -157,7 +214,9 @@ run c args = do
         return code
     logMesg Info $ "exited with "++show code
     addArtifact (ArtifactName log_name) log_path
-    return ()
+    case code of
+        ExitSuccess   -> return ()
+        ExitFailure n -> fail $ "Exited with code "++show n
 
 logProcess :: Handle -> FilePath -> FilePath -> [String] -> IO ExitCode
 logProcess log_h cwd cmd args = do
