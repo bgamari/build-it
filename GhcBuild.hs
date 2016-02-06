@@ -5,6 +5,7 @@ import System.Directory
 import Control.Monad.IO.Class
 import Data.List (isSuffixOf)
 import Options.Applicative
+import System.FilePath
 
 import Build
 import Upload.Client
@@ -44,7 +45,7 @@ binDist = step "bindist" $ do
     make ["binary-dist"]
     BuildEnv {..} <- getBuildEnv
     f:_ <- filter (".tar.xz" `isSuffixOf`) <$> liftIO (getDirectoryContents buildCwd)
-    copyArtifact (ArtifactName "bindist") f
+    copyArtifact (ArtifactName "bindist") (buildCwd </> f)
 
 testBinDist :: Step ()
 testBinDist = step "test-bindist" $ make ["test_bindist"]
