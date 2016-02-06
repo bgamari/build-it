@@ -2,8 +2,10 @@ import Data.Monoid
 import System.Directory
 import Control.Monad.IO.Class
 import Data.List (isSuffixOf)
+import Options.Applicative
 
 import Build
+import Upload.Client
 
 threads = 4
 
@@ -62,6 +64,6 @@ ghcBuild = buildSteps
 
 main :: IO ()
 main = do
-    env <- simpleBuildEnv
-    runAndPackageBuild env ghcBuild >>= print
-
+    (env, upload) <- execParser $ info (helper <*> ((,) <$> optBuildEnv <*> uploadOpts)) mempty
+    tarball <- runAndPackageBuild env ghcBuild
+    maybe (return ()) ($ tarball) upload

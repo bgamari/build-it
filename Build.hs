@@ -8,7 +8,7 @@ module Build
    , ArtifactName(..)
      -- * Build configuration
    , BuildEnv(..)
-   , buildEnv
+   , optBuildEnv
    , defaultBuildEnv
    , simpleBuildEnv
      -- * Builds
@@ -78,7 +78,7 @@ data BuildEnv = BuildEnv { nThreads   :: Int
 parseVerbosity :: Parser Verbosity
 parseVerbosity =
     option (f =<< auto)
-           (short 'v' <> long "verbosity" <> metavar "n"
+           (short 'v' <> long "verbosity" <> metavar "n" <> value Info
            <> help "how much output should we produce to the console?")
   where
     f 0 = pure Silent
@@ -86,13 +86,13 @@ parseVerbosity =
     f 2 = pure Debug
     f _ = fail "invalid verbosity"
 
-buildEnv :: Parser BuildEnv
-buildEnv =
-    BuildEnv <$> option auto (short 'j' <> long "jobs" <> metavar "n"
+optBuildEnv :: Parser BuildEnv
+optBuildEnv =
+    BuildEnv <$> option auto (short 'j' <> long "jobs" <> metavar "n" <> value 1
                              <> help "number of concurrent jobs to run")
-             <*> option str (short 'C' <> long "directory" <> metavar "dir"
+             <*> option str (short 'C' <> long "directory" <> metavar "dir" <> value "."
                             <> help "the location of the working tree")
-             <*> option str (short 't' <> long "temp-dir" <> metavar "dir"
+             <*> option str (short 't' <> long "temp-dir" <> metavar "dir" <> value "tmp"
                             <> help "where to place temporary files")
              <*> parseVerbosity
              <*> pure "build"
@@ -214,7 +214,7 @@ run c args = do
     addArtifact (ArtifactName log_name) log_path
     case code of
         ExitSuccess   -> return ()
-        ExitFailure n -> fail $ "Exited with code "++show n
+        ExitFailure n -> fail $ c++" exited with code "++show n
 
 logProcess :: Handle -> FilePath -> FilePath -> [String] -> IO ExitCode
 logProcess log_h cwd cmd args = do

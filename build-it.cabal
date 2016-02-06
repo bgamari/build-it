@@ -13,7 +13,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Results, Build
+  exposed-modules:     Results, Build, Upload.Api
   other-extensions:    GeneralizedNewtypeDeriving, DeriveAnyClass, DeriveGeneric, DeriveFunctor, OverloadedStrings, RecordWildCards
   build-depends:       base >=4.8 && <4.9,
                        aeson >=0.10 && <0.11,
@@ -28,6 +28,21 @@ library
                        async >=2.0 && <2.1,
                        stm >=2.4 && <2.5,
                        either >=4.4 && <4.5,
-                       directory >=1.2 && <1.3
+                       directory >=1.2 && <1.3,
+                       servant-server >= 0.4 && < 0.6,
+                       servant-client >= 0.4 && < 0.6,
+                       optparse-applicative >= 0.12 && < 0.13
   hs-source-dirs:      .
+  default-language:    Haskell2010
+
+executable upload-server
+  main-is:             UploadServer.hs
+  other-extensions:    DataKinds, TypeOperators
+  build-depends:       base >=4.8 && <4.9,
+                       bytestring >=0.10 && <0.11,
+                       servant-server >=0.4 && <0.5,
+                       warp-tls >=3.2 && <3.3,
+                       warp >=3.2 && <3.3,
+                       either >=4.4 && <4.5,
+                       transformers >=0.4 && <0.5
   default-language:    Haskell2010
