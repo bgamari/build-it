@@ -34,17 +34,15 @@ import System.Process
 import System.Exit
 import Data.Time.Clock
 import System.IO
-import System.Exit (ExitCode)
 import Data.Monoid
 import Control.Concurrent.Async
 import Control.Concurrent.STM
-import Control.Applicative ((<|>))
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Either
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
-import Control.Monad (when, forM)
+import Control.Monad (when)
 import Options.Applicative
 
 import Data.Aeson
