@@ -11,6 +11,7 @@ module Build
    , optBuildEnv
    , defaultBuildEnv
    , simpleBuildEnv
+   , getBuildEnv
      -- * Builds
    , Build
    , Build.buildSteps

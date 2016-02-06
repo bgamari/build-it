@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 import Data.Monoid
 import System.Directory
 import Control.Monad.IO.Class
@@ -40,7 +42,8 @@ compile = step "compile" $ make ["-j"<>show threads]
 binDist :: Step ()
 binDist = step "bindist" $ do
     make ["binary-dist"]
-    f:_ <- filter (".tar.xz" `isSuffixOf`) <$> liftIO (getDirectoryContents ".")
+    BuildEnv {..} <- getBuildEnv
+    f:_ <- filter (".tar.xz" `isSuffixOf`) <$> liftIO (getDirectoryContents buildCwd)
     copyArtifact (ArtifactName "bindist") f
 
 testBinDist :: Step ()
