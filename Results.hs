@@ -18,12 +18,13 @@ data StepSuccess = StepSucceeded
 data StepResult = StepResult { stepName      :: String
                              , stepSucceeded :: StepSuccess
                              , stepRuntime   :: NominalDiffTime
-                             , stepArtifacts :: [(ArtifactName, ScratchPath)]
+                             , stepArtifacts :: [(ArtifactName, PackagePath)]
                              }
     deriving (Generic, ToJSON, FromJSON)
 
--- | Path to a file in the scratch directory
-type ScratchPath = FilePath
+-- | Path to a file in the tarball package directory (relative to said directory)
+newtype PackagePath = PackagePath FilePath
+    deriving (Generic, ToJSON, FromJSON)
 
 data BuildResult = BuildResult { buildName   :: String
                                , buildCwd    :: FilePath

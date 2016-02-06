@@ -120,7 +120,7 @@ simpleBuildEnv = do
 newtype StepM a = StepM (EitherT String (StateT StepState (ReaderT BuildEnv IO)) a)
                 deriving (Functor, Applicative, Monad, MonadIO)
 
-data StepState = StepS { artifacts :: [(ArtifactName, FilePath)]
+data StepState = StepS { artifacts :: [(ArtifactName, PackagePath)]
                        , cmdLogNames :: [FilePath]
                        }
 
@@ -128,11 +128,6 @@ data Build = Build [Step ()]
 
 buildSteps :: [Step ()] -> Build
 buildSteps = Build
-
-scratchFile :: FilePath -> StepM ScratchPath
-scratchFile name = do
-    BuildEnv {..} <- getBuildEnv
-    return $ scratchDir </> buildName </> name
 
 runAndPackageBuild :: BuildEnv -> Build -> IO FilePath
 runAndPackageBuild env@(BuildEnv {..}) build = do
@@ -143,7 +138,7 @@ runAndPackageBuild env@(BuildEnv {..}) build = do
 
     let artifact_paths = "build.json" : [ path
                                         | step <- Results.buildSteps result
-                                        , (_, path) <- stepArtifacts step
+                                        , (_, PackagePath path) <- stepArtifacts step
                                         ]
 
     let tarball_path = artifact_dir <.> "tar.xz"
@@ -204,7 +199,7 @@ run :: FilePath -> [String] -> StepM ()
 run c args = do
     BuildEnv {..} <- getBuildEnv
     log_name:rest <- cmdLogNames <$> StepM (lift get)
-    log_path <- scratchFile log_name
+    let log_path = scratchDir </> buildName </> log_name
     StepM $ lift $ modify $ \s -> s {cmdLogNames = rest}
     logMesg Info $ "running "++unwords (c:args)++"... "
     code <- liftIO $ withFile log_path WriteMode $ \log_h -> do
@@ -212,7 +207,7 @@ run c args = do
         hPutStrLn log_h $ "$ exit code = "++show code
         return code
     logMesg Info $ "exited with "++show code
-    addArtifact (ArtifactName log_name) log_path
+    addArtifact (ArtifactName log_name) (PackagePath log_name)
     case code of
         ExitSuccess   -> return ()
         ExitFailure n -> fail $ c++" exited with code "++show n
@@ -244,22 +239,20 @@ logProcess log_h cwd cmd args = do
     wait w
     waitForProcess ph
 
-addArtifact :: ArtifactName -> FilePath -> StepM ()
-addArtifact name file = do
-    BuildEnv {..} <- getBuildEnv
-    let rel = (scratchDir </> buildName) `makeRelative` file
-    StepM $ lift $ modify $ \s -> s { artifacts = (name, rel) : artifacts s }
+addArtifact :: ArtifactName -> PackagePath -> StepM ()
+addArtifact name path =
+    StepM $ lift $ modify $ \s -> s { artifacts = (name, path) : artifacts s }
 
 copyArtifact :: ArtifactName -> FilePath -> StepM ()
 copyArtifact name file = do
     BuildEnv {..} <- getBuildEnv
-    dest <- scratchFile file
+    let dest = scratchDir </> buildName </> takeFileName file
     liftIO $ copyFile file dest
-    addArtifact name dest
+    addArtifact name $ PackagePath $ takeFileName file
 
 addArtifactCompressed :: ArtifactName -> FilePath -> StepM ()
 addArtifactCompressed name file = do
     BuildEnv {..} <- getBuildEnv
-    dest <- scratchFile (file <.> "xz")
+    let dest = scratchDir </> buildName </> takeFileName file <.> "xz"
     liftIO $ BSL.writeFile dest . Lzma.compress =<< BSL.readFile file
-    addArtifact name dest
+    addArtifact name $ PackagePath $ takeFileName file
